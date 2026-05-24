@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Study Assistant | Engineering Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --accent: #38bdf8;
+            --accent-hover: #0ea5e9;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --border: #334155;
+            --success: #22c55e;
+            --error: #ef4444;
+        }
+
+        * { box-sizing: border-box; transition: all 0.2s ease; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container { max-width: 900px; width: 100%; }
+
+        header { text-align: center; margin-bottom: 50px; }
+        h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 10px; letter-spacing: -0.025em; }
+        .subtext { color: var(--text-dim); font-size: 1.1rem; }
+
+        .input-group {
+            background: var(--bg-card);
+            padding: 8px;
+            border-radius: 12px;
+            display: flex;
+            gap: 10px;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 40px;
+        }
+
+        input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 12px 20px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        button.generate-btn {
+            background: var(--accent);
+            color: var(--bg-dark);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button.generate-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+
+        /* Skeleton Animation */
+        .skeleton {
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .skeleton-block {
+            height: 20px;
+            background: var(--bg-card);
+            border-radius: 4px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        /* Tabs */
+        .dashboard { display: none; }
+        .tabs {
+            display: flex;
+            gap: 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 30px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            color: var(--text-dim);
+            font-weight: 600;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .tab-content { display: none; background: var(--bg-card); padding: 30px; border-radius: 16px; min-height: 400px; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Markdown Styles */
+        #notes-content { line-height: 1.7; color: #cbd5e1; }
+        #notes-content h1, #notes-content h2 { color: var(--text-main); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-top: 24px; }
+        #notes-content code { background: #0f172a; padding: 2px 6px; border-radius: 4px; font-family: monospace; color: var(--accent); }
+        #notes-content pre { background: #0f172a; padding: 15px; border-radius: 8px; overflow-x: auto; border: 1px solid var(--border); }
+        #notes-content ul { padding-left: 20px; }
+
+        /* Quiz Styles */
+        .quiz-item { margin-bottom: 40px; padding-bottom: 40px; border-bottom: 1px solid var(--border); }
+        .quiz-item:last-child { border: none; }
+        .question-text { font-size: 1.2rem; font-weight: 600; margin-bottom: 20px; color: var(--text-main); }
+        .options { display: flex; flex-direction: column; gap: 12px; }
+        .option-label {
+            background: #334155;
+            padding: 14px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid transparent;
+            font-weight: 500;
+        }
+        .option-label:hover { background: #475569; }
+        .option-label.correct { background: rgba(34, 197, 94, 0.2); border-color: var(--success); }
+        .option-label.wrong { background: rgba(239, 68, 68, 0.2); border-color: var(--error); }
+        
+        .explanation {
+            margin-top: 20px;
+            padding: 16px;
+            background: rgba(56, 189, 248, 0.05);
+            border-left: 4px solid var(--accent);
+            display: none;
+            font-size: 0.95rem;
+            color: #cbd5e1;
+            line-height: 1.5;
+        }
+
+        input[type="radio"] { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>AI Study Assistant</h1>
+            <p class="subtext">Enter any academic topic or concept to generate a mastery plan</p>
+        </header>
+
+        <div class="input-group">
+            <input type="text" id="topicInput" placeholder="e.g. Quantum Computing, React Hooks...">
+            <button class="generate-btn" id="genBtn" onclick="generateModule()">
+                <span>Generate Learning Module</span>
+            </button>
+        </div>
+
+        <div id="skeleton" class="skeleton">
+            <div class="skeleton-block" style="width: 40%"></div>
+            <div class="skeleton-block" style="width: 100%; height: 200px"></div>
+            <div class="skeleton-block" style="width: 90%"></div>
+            <div class="skeleton-block" style="width: 80%"></div>
+        </div>
+
+        <div id="dashboard" class="dashboard">
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('notes')">Core Study Notes</div>
+                <div class="tab" onclick="switchTab('quiz')">Practice Evaluation Quiz</div>
+            </div>
+
+            <div id="notes-tab" class="tab-content active">
+                <div id="notes-content"></div>
+            </div>
+
+            <div id="quiz-tab" class="tab-content">
+                <div id="quiz-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function generateModule() {
+            const topicInput = document.getElementById('topicInput');
+            const genBtn = document.getElementById('genBtn');
+            const topic = topicInput.value;
+            if (!topic) return;
+
+            // UI Loading State
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('skeleton').style.display = 'flex';
+            genBtn.disabled = true;
+            genBtn.style.opacity = '0.5';
+
+            try {
+                const response = await fetch('https://ai-study-backend-11922836685.us-central1.run.app/api/study', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic })
+                });
+
+                if (!response.ok) throw new Error("Backend error");
+
+                const responseText = await response.text();
+                
+                // --- BRUTE-FORCE EXTRACTION FALLBACK ---
+                let markdown = "# No notes found";
+                let quizData = [];
+                let stringContent = responseText;
+
+                // Pre-check: if the response is valid JSON, check if markdown_notes is nested
+                try {
+                    const outerData = JSON.parse(responseText);
+                    if (outerData.markdown_notes && typeof outerData.markdown_notes === 'string') {
+                        stringContent = outerData.markdown_notes;
+                    } else if (outerData.markdown_notes) {
+                        markdown = outerData.markdown_notes;
+                        quizData = outerData.quiz || [];
+                    }
+                } catch(e) {}
+
+                if (stringContent.includes('"quiz":')) {
+                    try {
+                        const jsonMatch = stringContent.match(/\{[\s\S]*\}/);
+                        const data = JSON.parse(jsonMatch[0]);
+                        markdown = data.markdown_notes || markdown;
+                        quizData = data.quiz || [];
+                    } catch (err) {
+                        // CRITICAL: Brute-force capture group extraction
+                        const mdMatch = stringContent.match(/"markdown_notes"\s*:\s*"([\s\S]*?)"\s*,\s*"quiz"/);
+                        if (mdMatch) {
+                            markdown = mdMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+                        } else {
+                            markdown = stringContent;
+                        }
+                    }
+                } else if (markdown === "# No notes found") {
+                    markdown = stringContent;
+                }
+                // ----------------------------------------
+                
+                // Final Render
+                document.getElementById('notes-content').innerHTML = marked.parse(markdown);
+                renderQuiz(quizData);
+
+                // 3. Finalize UI
+                document.getElementById('skeleton').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                switchTab('notes');
+
+            } catch (error) {
+                console.error(error);
+                alert("Error: " + error.message);
+                document.getElementById('skeleton').style.display = 'none';
+            } finally {
+                genBtn.disabled = false;
+                genBtn.style.opacity = '1';
+            }
+        }
+
+        function switchTab(type) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            if (type === 'notes') {
+                document.querySelectorAll('.tab')[0].classList.add('active');
+                document.getElementById('notes-tab').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab')[1].classList.add('active');
+                document.getElementById('quiz-tab').classList.add('active');
+            }
+        }
+
+        function renderQuiz(questions) {
+            const container = document.getElementById('quiz-container');
+            container.innerHTML = '';
+
+            if (questions.length === 0) {
+                container.innerHTML = "<p style='color: var(--text-dim)'>No quiz questions available for this topic.</p>";
+                return;
+            }
+
+            questions.forEach((q, qIndex) => {
+                const item = document.createElement('div');
+                item.className = 'quiz-item';
+                
+                const optionsHtml = q.options.map((opt, oIndex) => `
+                    <label class="option-label" onclick="handleChoice(this, ${oIndex}, ${q.correct_option_index}, ${qIndex})">
+                        <input type="radio" name="q${qIndex}" value="${oIndex}">
+                        <span class="bullet">${String.fromCharCode(65 + oIndex)}.</span>
+                        <span class="text">${opt}</span>
+                    </label>
+                `).join('');
+
+                item.innerHTML = `
+                    <div class="question-text">${qIndex + 1}. ${q.question_text}</div>
+                    <div class="options">${optionsHtml}</div>
+                    <div id="expl-${qIndex}" class="explanation">
+                        <strong>Review:</strong> ${q.explanation}
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function handleChoice(element, selectedIdx, correctIdx, qIndex) {
+            const parent = element.parentElement;
+            const options = parent.querySelectorAll('.option-label');
+            const explanation = document.getElementById(`expl-${qIndex}`);
+
+            // Prevent multiple clicks
+            if (parent.dataset.answered === "true") return;
+            parent.dataset.answered = "true";
+
+            options.forEach((opt, idx) => {
+                opt.style.cursor = 'default';
+                if (idx === correctIdx) {
+                    opt.classList.add('correct');
+                } else if (idx === selectedIdx) {
+                    opt.classList.add('wrong');
+                }
+            });
+
+            explanation.style.display = 'block';
+            explanation.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    </script>
+</body>
+</html>
